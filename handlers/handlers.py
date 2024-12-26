@@ -103,9 +103,15 @@ async def get_link_2(message: Message, state: FSMContext):
 
             import xml.etree.ElementTree as ET
 
+            import xml.etree.ElementTree as ET
+
             def convert_to_gpx(input_file, output_file):
                 # Создаем корневой элемент GPX
                 gpx = ET.Element('gpx', version='1.1', creator='YourName')
+
+                # Создаем элемент track
+                trk = ET.SubElement(gpx, 'trk')
+                trkseg = ET.SubElement(trk, 'trkseg')  # Создаем сегмент трека
 
                 with open(input_file, 'r') as file:
                     lines = file.readlines()
@@ -116,9 +122,9 @@ async def get_link_2(message: Message, state: FSMContext):
                             longitude = lines[i].strip()  # Долгота
                             latitude = lines[i + 1].strip()  # Широта
 
-                            # Создаем элемент "wpt" (waypoint) для каждой пары координат
-                            wpt = ET.SubElement(gpx, 'wpt', lat=latitude, lon=longitude)
-                            ET.SubElement(wpt, 'name').text = f'Point {i // 2 + 1}'  # Имя точки
+                            # Создаем элемент "trkpt" (track point) для каждой пары координат
+                            trkpt = ET.SubElement(trkseg, 'trkpt', lat=latitude, lon=longitude)
+                            ET.SubElement(trkpt, 'name').text = f'Point {i // 2 + 1}'  # Имя точки
 
                 # Записываем GPX в файл
                 tree = ET.ElementTree(gpx)
