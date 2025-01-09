@@ -9,7 +9,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from config_data.config import Config, load_config
 from aiogram.types.input_file import FSInputFile
-
+import xml.etree.ElementTree as ET
 from database.database import insert_database
 from keyboards.keyboard import html_keyboard
 from lexicon.lexicon import LEXICON_RU
@@ -57,24 +57,18 @@ async def get_link_2(message: Message, state: FSMContext):
 
                     count += 1
                     print(count)
-            def extract_coordinates(content, output_file):
-                start_marker = '"coordinates":[['
-                end_marker = ']]}'
 
-                start_index = content.find(start_marker)
-                end_index = content.find(end_marker, start_index)
+            def edit_file(search_string, file_name):
+                with open(file_name, 'r', encoding="utf-8") as file:
+                    lines = file.readlines()  # Исправлено: добавлены круглые скобки для вызова функции
 
-                if start_index != -1 and end_index != -1:
-                    start_index += len(start_marker)
-                    coordinates_data = content[start_index:end_index].strip()
+                filtered_lines = [line for line in lines if search_string in line]
 
-                    # Убираем квадратные скобки и запятые, а затем разбиваем на строки
-                    coordinates_data = coordinates_data.replace('[', '').replace(']', '').replace(',', '\n').strip()
-
-                    with open(output_file, 'w', encoding='utf-8') as outfile:
-                        outfile.write(coordinates_data)
+                if filtered_lines:
+                    with open(file_name, 'w', encoding="utf-8") as file:
+                        file.writelines(filtered_lines)  # Исправлено: добавлены круглые скобки
                 else:
-                    print("Не удалось найти координаты в данных.")
+                    print("Строки не найдены.")
 
             def edit_file(search_string, file_name):
                 with open(file_name, 'r', encoding="utf-8") as file:
@@ -88,6 +82,37 @@ async def get_link_2(message: Message, state: FSMContext):
                 else:
                     print("Строки не найдены.")
 
+            def extract_coordinates(content, prefix='coordinates_'):
+                start_marker = '"coordinates":[['
+                end_marker = ']]}'
+
+                start_index = 0
+                file_count = 1  # Счетчик файлов для нумерации
+
+                while True:
+                    start_index = content.find(start_marker, start_index)
+
+                    if start_index == -1:
+                        break  # Если координаты не найдены, выходим из цикла
+
+                    end_index = content.find(end_marker, start_index)
+
+                    if end_index != -1:
+                        start_index += len(start_marker)
+                        coordinates_data = content[start_index:end_index].strip()
+
+                        # Убираем квадратные скобки и запятые, а затем разбиваем на строки
+                        coordinates_data = coordinates_data.replace('[', '').replace(']', '').replace(',', '\n').strip()
+
+                        # Записываем данные в файл
+                        output_file = f'./database/{prefix}{file_count}.txt'  # Имя файла с номером
+                        with open(output_file, 'w', encoding='utf-8') as outfile:
+                            outfile.write(coordinates_data)
+
+                        file_count += 1  # Увеличиваем счетчик файлов
+
+                    start_index = end_index + len(end_marker)  # Перемещаемся к следующему блоку
+
             # Основной код
             file_name = f"./database/{message.from_user.username}.txt"
 
@@ -98,12 +123,11 @@ async def get_link_2(message: Message, state: FSMContext):
             with open(file_name, 'w', encoding="utf-8") as file:
                 file.write(data)
 
-            # Извлекаем координаты из файла
-            extract_coordinates(data, file_name)
+            # Извлекаем координаты из данных
+            extract_coordinates(data)
 
-            import xml.etree.ElementTree as ET
-
-            import xml.etree.ElementTree as ET
+            # Для созданного файла координат можно добавить эту строку
+            n = 1  # Укажите нужное значение n или получите его другими способами
 
             def convert_to_gpx(input_file, output_file):
                 # Создаем корневой элемент GPX
@@ -113,8 +137,8 @@ async def get_link_2(message: Message, state: FSMContext):
                 trk = ET.SubElement(gpx, 'trk')
                 trkseg = ET.SubElement(trk, 'trkseg')  # Создаем сегмент трека
 
-                with open(input_file, 'r') as file:
-                    lines = file.readlines()
+                with open(input_file, 'r', encoding='utf-8') as file:
+                    lines = file.readlines()  # Читаем строки файла
 
                     # Обрабатываем координаты
                     for i in range(0, len(lines), 2):  # Проходим по строкам с шагом 2
@@ -131,14 +155,19 @@ async def get_link_2(message: Message, state: FSMContext):
                 tree.write(output_file, encoding='utf-8', xml_declaration=True)
 
             # Основной код
-            input_file = f'./database/{message.from_user.username}.txt'  # Имя входного текстового файла с координатами
-            output_file = f'./database/{message.from_user.username}.gpx'  # Имя выходного GPX файла
+            n = 100  # Задайте n или получите его другие доступные способы
 
-            convert_to_gpx(input_file, output_file)
-            user_id = message.from_user.id
-            document = FSInputFile(f'./database/{message.from_user.username}.gpx')
-            await bot.send_document(user_id, document, caption=f'Ваш GPX-файл!')
-            os.remove(f'./database/{message.from_user.username}.txt')
+            # Предполагаем, что n обозначает количество файлов
+            for i in range(1, n + 1):  # Перебираем номера файлов
+                coordinates_file_name = f"./database/coordinates_{i}.txt"
+                output_file = f"./database/{message.from_user.username}_coordinates_{i}.gpx"  # Имя выходного GPX файла
+
+                if os.path.exists(coordinates_file_name):  # Проверяем, существует ли файл
+                    convert_to_gpx(coordinates_file_name, output_file)
+                    user_id = message.from_user.id
+                    document = FSInputFile(output_file)  # Создаем объект для отправки документа
+                    await bot.send_document(user_id, document, caption=f'Ваш GPX-файлы!')
+                    os.remove(coordinates_file_name)  # Удаляем текстовый файл с координатами
         except Exception as e:
             await message.answer(f'Произошла ошибка при получении информации: {str(e)}')
     else:
