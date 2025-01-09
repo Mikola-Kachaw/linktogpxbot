@@ -4,13 +4,17 @@ from aiogram.types import BotCommand
 from config_data.config import Config, load_config
 from handlers import handlers
 from database.database import create_database
+from aiogram.client.session.aiohttp import AiohttpSession
+
+
 
 
 
 async def main():
+    session = AiohttpSession(proxy="http://proxy.server:3128")
     config: Config = load_config()
 
-    bot = Bot(token=config.tg_bot.token)
+    bot = Bot(token=config.tg_bot.token,session=session)
     dp = Dispatcher()
 
     dp.include_router(handlers.router)
